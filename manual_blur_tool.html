@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Video Blur Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            color: #ccc;
+            font-weight: 500;
+        }
+
+        select, button, input[type="range"] {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            background: #444;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select:hover, button:hover {
+            background: #555;
+            transform: translateY(-2px);
+        }
+
+        button {
+            padding: 12px 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button.active {
+            background: #667eea;
+        }
+
+        button.click-tool {
+            background: #27ae60;
+        }
+
+        button.click-tool:hover {
+            background: #2ecc71;
+        }
+
+        button.draw-tool {
+            background: #667eea;
+        }
+
+        button.draw-tool:hover {
+            background: #5a6fd8;
+        }
+
+        button.erase {
+            background: #e74c3c;
+        }
+
+        button.erase:hover {
+            background: #c0392b;
+        }
+
+        button.clear {
+            background: #f39c12;
+        }
+
+        button.clear:hover {
+            background: #e67e22;
+        }
+
+        button.export {
+            background: #9b59b6;
+        }
+
+        button.export:hover {
+            background: #8e44ad;
+        }
+
+        button.export:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .export-progress {
+            margin-top: 15px;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .export-status {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            display: inline-block;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        video {
+            display: none; /* Hide original video */
+        }
+
+        #displayCanvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+            pointer-events: all;
+        }
+
+        .video-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            flex-wrap: wrap;
+        }
+
+        .time-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .time-slider {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .time-display {
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: #667eea;
+            min-width: 120px;
+        }
+
+        .brush-size {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brush-size input {
+            width: 150px;
+        }
+
+        .brush-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            border: 2px solid #667eea;
+            display: inline-block;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-item .label {
+            font-size: 0.8rem;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        .status-item .value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .timeline {
+            margin-top: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 10px;
+        }
+
+        .timeline h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .timeline-track {
+            height: 60px;
+            background: #1a1a1a;
+            border-radius: 5px;
+            position: relative;
+            border: 2px solid #444;
+            cursor: pointer;
+        }
+
+        .blur-segment {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.7), rgba(118, 75, 162, 0.7));
+            border-radius: 3px;
+            border: 1px solid #667eea;
+        }
+
+        .timeline-cursor {
+            position: absolute;
+            width: 3px;
+            height: 100%;
+            background: #e74c3c;
+            top: 0;
+            pointer-events: none;
+            border-radius: 2px;
+            z-index: 10;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .instructions h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .instructions li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+        }
+
+        .tool-modes {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .video-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .time-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Manual Video Blur Tool</h1>
+            <p>Actually blur video content with temporal persistence</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="videoSelect">Select Video:</label>
+                <select id="videoSelect">
+                    <option value="">Choose a video...</option>
+                    <option value="input/videoplayback.mp4">Video 1 (videoplayback.mp4)</option>
+                    <option value="input/download.MP4">Video 2 (download.MP4)</option>
+                    <option value="input/download (2).MP4">Video 3 (download (2).MP4)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Tool Mode:</label>
+                <div class="tool-modes">
+                    <button id="clickMode" class="active click-tool">📍 Click</button>
+                    <button id="drawMode" class="draw-tool">🖌️ Draw</button>
+                    <button id="eraseMode" class="erase">🧹 Erase</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Actions:</label>
+                <div class="tool-modes">
+                    <button id="clearAll" class="clear">🗑️ Clear All</button>
+                    <button id="replayVideo">▶️ Replay</button>
+                    <button id="exportVideo" class="export">💾 Export Video</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="brushSize">Blur Region Size:</label>
+                <div class="brush-size">
+                    <input type="range" id="brushSize" min="20" max="200" value="50">
+                    <div class="brush-preview" id="brushPreview"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="video-section" id="videoSection" style="display: none;">
+            <div class="video-container" id="videoContainer">
+                <video id="mainVideo" muted crossorigin="anonymous">
+                    Your browser does not support the video tag.
+                </video>
+                <canvas id="displayCanvas"></canvas>
+                <canvas id="overlayCanvas"></canvas>
+            </div>
+
+            <div class="video-controls">
+                <div class="time-controls">
+                    <button id="playPause">▶️</button>
+                    <input type="range" id="timeSlider" class="time-slider" min="0" max="100" value="0">
+                    <div class="time-display" id="timeDisplay">0:00 / 0:00</div>
+                </div>
+                <button id="stepBack">⏪ -1s</button>
+                <button id="stepForward">⏭️ +1s</button>
+            </div>
+        </div>
+
+        <div class="timeline" id="timeline" style="display: none;">
+            <h3>Blur Timeline (Click to Jump to Time)</h3>
+            <div class="timeline-track" id="timelineTrack">
+                <div class="timeline-cursor" id="timelineCursor"></div>
+            </div>
+        </div>
+
+        <div class="status" id="status" style="display: none;">
+            <div class="status-item">
+                <span class="label">Current Mode</span>
+                <span class="value" id="currentMode">Click</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Blur Actions</span>
+                <span class="value" id="blurCount">0</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Video Status</span>
+                <span class="value" id="videoStatus">Paused</span>
+            </div>
+        </div>
+
+        <div class="export-progress" id="exportProgress">
+            <div class="export-status" id="exportStatus">Preparing export...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instructions</h3>
+            <ul>
+                <li><strong>Click Mode:</strong> Click to add circular blur regions at current time</li>
+                <li><strong>Draw Mode:</strong> Draw blur regions while dragging mouse</li>
+                <li><strong>Erase Mode:</strong> Click/drag to STOP blur from current time forward (previous blur kept)</li>
+                <li><strong>Timeline:</strong> Click to jump to times, red cursor shows current position</li>
+                <li><strong>Temporal Logic:</strong> Blur persists from creation until erased. Erase only affects current time forward.</li>
+                <li><strong>Video Controls:</strong> Play/pause, seek, step ±1 second, replay from start</li>
+                <li>Adjust blur region size with the slider</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        class ManualBlurTool {
+            constructor() {
+                this.video = document.getElementById('mainVideo');
+                this.displayCanvas = document.getElementById('displayCanvas');
+                this.displayCtx = this.displayCanvas.getContext('2d');
+                this.overlayCanvas = document.getElementById('overlayCanvas');
+                this.overlayCtx = this.overlayCanvas.getContext('2d');
+                this.videoSelect = document.getElementById('videoSelect');
+                this.videoSection = document.getElementById('videoSection');
+                
+                // Tool modes
+                this.currentTool = 'click';
+                this.isDrawing = false;
+                this.brushSize = 50;
+                
+                // Blur regions: { id, x, y, size, startTime, endTime }
+                // endTime = null means blur continues indefinitely
+                this.blurRegions = [];
+                this.nextId = 0;
+                
+                // Animation frame
+                this.animationFrame = null;
+                
+                this.setupEventListeners();
+                this.updateBrushPreview();
+            }
+
+            setupEventListeners() {
+                // Video selection
+                this.videoSelect.addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.loadVideo(e.target.value);
+                    }
+                });
+
+                // Tool mode buttons
+                document.getElementById('clickMode').addEventListener('click', () => {
+                    this.setToolMode('click');
+                });
+
+                document.getElementById('drawMode').addEventListener('click', () => {
+                    this.setToolMode('draw');
+                });
+
+                document.getElementById('eraseMode').addEventListener('click', () => {
+                    this.setToolMode('erase');
+                });
+
+                // Action buttons
+                document.getElementById('clearAll').addEventListener('click', () => {
+                    this.clearAllBlurs();
+                });
+
+                document.getElementById('replayVideo').addEventListener('click', () => {
+                    this.replayVideo();
+                });
+
+                document.getElementById('exportVideo').addEventListener('click', () => {
+                    this.exportVideo();
+                });
+
+                // Brush size
+                document.getElementById('brushSize').addEventListener('input', (e) => {
+                    this.brushSize = parseInt(e.target.value);
+                    this.updateBrushPreview();
+                });
+
+                // Video controls
+                document.getElementById('playPause').addEventListener('click', () => {
+                    this.togglePlayPause();
+                });
+
+                document.getElementById('stepBack').addEventListener('click', () => {
+                    this.stepVideo(-1);
+                });
+
+                document.getElementById('stepForward').addEventListener('click', () => {
+                    this.stepVideo(1);
+                });
+
+                document.getElementById('timeSlider').addEventListener('input', (e) => {
+                    this.seekVideo(parseFloat(e.target.value) / 100);
+                });
+
+                // Canvas interactions
+                this.overlayCanvas.addEventListener('mousedown', (e) => this.handleCanvasInteraction(e, 'start'));
+                this.overlayCanvas.addEventListener('mousemove', (e) => this.handleCanvasInteraction(e, 'move'));
+                this.overlayCanvas.addEventListener('mouseup', (e) => this.handleCanvasInteraction(e, 'end'));
+                this.overlayCanvas.addEventListener('mouseleave', (e) => this.handleCanvasInteraction(e, 'end'));
+
+                // Timeline interaction
+                document.getElementById('timelineTrack').addEventListener('click', (e) => {
+                    this.handleTimelineClick(e);
+                });
+
+                // Video events
+                this.video.addEventListener('loadedmetadata', () => {
+                    this.setupCanvas();
+                    this.startRenderLoop();
+                    this.updateUI();
+                });
+
+                this.video.addEventListener('timeupdate', () => {
+                    this.updateUI();
+                });
+
+                this.video.addEventListener('play', () => {
+                    this.updateUI();
+                });
+
+                this.video.addEventListener('pause', () => {
+                    this.updateUI();
+                });
+            }
+
+            loadVideo(src) {
+                this.video.src = src;
+                this.videoSection.style.display = 'block';
+                document.getElementById('timeline').style.display = 'block';
+                document.getElementById('status').style.display = 'flex';
+                this.clearAllBlurs();
+            }
+
+            setupCanvas() {
+                this.displayCanvas.width = this.video.videoWidth;
+                this.displayCanvas.height = this.video.videoHeight;
+                this.displayCanvas.style.width = '100%';
+                this.displayCanvas.style.height = 'auto';
+                
+                this.overlayCanvas.width = this.video.videoWidth;
+                this.overlayCanvas.height = this.video.videoHeight;
+                this.overlayCanvas.style.width = '100%';
+                this.overlayCanvas.style.height = 'auto';
+            }
+
+            startRenderLoop() {
+                const render = () => {
+                    this.renderFrame();
+                    this.animationFrame = requestAnimationFrame(render);
+                };
+                render();
+            }
+
+            renderFrame() {
+                if (!this.video.videoWidth || !this.video.videoHeight) return;
+
+                // Clear display canvas
+                this.displayCtx.clearRect(0, 0, this.displayCanvas.width, this.displayCanvas.height);
+
+                // Draw original video frame
+                this.displayCtx.drawImage(this.video, 0, 0);
+
+                // Get current time and active blur regions
+                const currentTime = this.video.currentTime;
+                const activeRegions = this.getActiveBlurRegions(currentTime);
+
+                // Apply blur to active regions
+                if (activeRegions.length > 0) {
+                    // Get image data
+                    const imageData = this.displayCtx.getImageData(0, 0, this.displayCanvas.width, this.displayCanvas.height);
+                    
+                    // Apply blur to each region
+                    for (const region of activeRegions) {
+                        this.applyBlurToRegion(imageData, region);
+                    }
+
+                    // Put the blurred image back
+                    this.displayCtx.putImageData(imageData, 0, 0);
+                }
+
+                // Clear overlay (no more visual indicators - let the actual blur show)
+                this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+            }
+
+            getActiveBlurRegions(currentTime) {
+                return this.blurRegions.filter(region => {
+                    return region.startTime <= currentTime && 
+                           (region.endTime === null || region.endTime > currentTime);
+                });
+            }
+
+            applyBlurToRegion(imageData, region) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+                
+                const centerX = Math.round(region.x);
+                const centerY = Math.round(region.y);
+                const radius = Math.round(region.size / 2);
+                
+                // IMPORTANT: Make a complete copy of original data for sampling
+                const originalData = new Uint8ClampedArray(data.length);
+                for (let i = 0; i < data.length; i++) {
+                    originalData[i] = data[i];
+                }
+                
+                // Apply strong blur - bigger blur radius for more effect
+                const blurRadius = Math.max(8, Math.floor(region.size / 8)); // Much stronger blur
+                
+                // Apply blur in circular region
+                for (let y = Math.max(0, centerY - radius); y < Math.min(height, centerY + radius); y++) {
+                    for (let x = Math.max(0, centerX - radius); x < Math.min(width, centerX + radius); x++) {
+                        const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                        
+                        if (distance <= radius) {
+                            // Apply blur to this pixel
+                            this.applyStrongBlur(data, originalData, x, y, width, height, blurRadius);
+                        }
+                    }
+                }
+            }
+
+            applyStrongBlur(data, originalData, x, y, width, height, blurRadius) {
+                const index = (y * width + x) * 4;
+                let r = 0, g = 0, b = 0, count = 0;
+
+                // Sample many surrounding pixels for strong blur effect
+                for (let dy = -blurRadius; dy <= blurRadius; dy += 1) {
+                    for (let dx = -blurRadius; dx <= blurRadius; dx += 1) {
+                        const sampleX = Math.max(0, Math.min(width - 1, x + dx));
+                        const sampleY = Math.max(0, Math.min(height - 1, y + dy));
+                        const sampleIndex = (sampleY * width + sampleX) * 4;
+                        
+                        r += originalData[sampleIndex];
+                        g += originalData[sampleIndex + 1];
+                        b += originalData[sampleIndex + 2];
+                        count++;
+                    }
+                }
+
+                // Apply the averaged (blurred) values
+                if (count > 0) {
+                    data[index] = Math.round(r / count);     // Red
+                    data[index + 1] = Math.round(g / count); // Green  
+                    data[index + 2] = Math.round(b / count); // Blue
+                    // Keep alpha channel unchanged: data[index + 3] stays the same
+                }
+            }
+
+            setToolMode(mode) {
+                this.currentTool = mode;
+                document.getElementById('clickMode').classList.toggle('active', mode === 'click');
+                document.getElementById('drawMode').classList.toggle('active', mode === 'draw');
+                document.getElementById('eraseMode').classList.toggle('active', mode === 'erase');
+                document.getElementById('currentMode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+                
+                this.overlayCanvas.style.cursor = mode === 'click' ? 'pointer' : mode === 'draw' ? 'crosshair' : 'grab';
+            }
+
+            updateBrushPreview() {
+                const preview = document.getElementById('brushPreview');
+                preview.style.width = Math.min(40, this.brushSize / 4) + 'px';
+                preview.style.height = Math.min(40, this.brushSize / 4) + 'px';
+            }
+
+            getCanvasPosition(e) {
+                const rect = this.overlayCanvas.getBoundingClientRect();
+                const scaleX = this.overlayCanvas.width / rect.width;
+                const scaleY = this.overlayCanvas.height / rect.height;
+                
+                return {
+                    x: (e.clientX - rect.left) * scaleX,
+                    y: (e.clientY - rect.top) * scaleY
+                };
+            }
+
+            handleCanvasInteraction(e, phase) {
+                const pos = this.getCanvasPosition(e);
+                const currentTime = this.video.currentTime;
+
+                if (this.currentTool === 'click' && phase === 'start') {
+                    this.addBlurRegion(pos.x, pos.y, this.brushSize, currentTime);
+                } else if (this.currentTool === 'draw') {
+                    if (phase === 'start') {
+                        this.isDrawing = true;
+                        this.addBlurRegion(pos.x, pos.y, this.brushSize, currentTime);
+                    } else if (phase === 'move' && this.isDrawing) {
+                        this.addBlurRegion(pos.x, pos.y, this.brushSize, currentTime);
+                    } else if (phase === 'end') {
+                        this.isDrawing = false;
+                    }
+                } else if (this.currentTool === 'erase') {
+                    if (phase === 'start') {
+                        this.isDrawing = true;
+                        this.eraseBlurRegion(pos.x, pos.y, this.brushSize, currentTime);
+                    } else if (phase === 'move' && this.isDrawing) {
+                        this.eraseBlurRegion(pos.x, pos.y, this.brushSize, currentTime);
+                    } else if (phase === 'end') {
+                        this.isDrawing = false;
+                    }
+                }
+            }
+
+            addBlurRegion(x, y, size, startTime) {
+                this.blurRegions.push({
+                    id: this.nextId++,
+                    x: x,
+                    y: y,
+                    size: size,
+                    startTime: startTime,
+                    endTime: null // Continues indefinitely until erased
+                });
+                
+                this.updateTimeline();
+                this.updateUI();
+            }
+
+            eraseBlurRegion(x, y, size, currentTime) {
+                const eraseRadius = size / 2;
+                
+                // Find overlapping blur regions that are currently active
+                for (let region of this.blurRegions) {
+                    if (region.endTime !== null) continue; // Already ended
+                    if (region.startTime > currentTime) continue; // Hasn't started yet
+                    
+                    const distance = Math.sqrt((region.x - x) ** 2 + (region.y - y) ** 2);
+                    const overlap = distance < (region.size / 2 + eraseRadius) / 2;
+                    
+                    if (overlap) {
+                        // End this blur region at current time
+                        region.endTime = currentTime;
+                    }
+                }
+                
+                this.updateTimeline();
+                this.updateUI();
+            }
+
+            // Video control methods
+            togglePlayPause() {
+                if (this.video.paused) {
+                    this.video.play();
+                } else {
+                    this.video.pause();
+                }
+            }
+
+            stepVideo(seconds) {
+                this.video.currentTime = Math.max(0, Math.min(this.video.duration || 0, this.video.currentTime + seconds));
+            }
+
+            seekVideo(percentage) {
+                if (this.video.duration) {
+                    this.video.currentTime = this.video.duration * percentage;
+                }
+            }
+
+            replayVideo() {
+                this.video.currentTime = 0;
+                this.video.play();
+            }
+
+            handleTimelineClick(e) {
+                const rect = e.target.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+                
+                if (this.video.duration) {
+                    this.video.currentTime = this.video.duration * percentage;
+                }
+            }
+
+            updateTimeline() {
+                const track = document.getElementById('timelineTrack');
+                const cursor = document.getElementById('timelineCursor');
+                
+                // Update cursor position
+                if (this.video.duration) {
+                    const percentage = (this.video.currentTime / this.video.duration) * 100;
+                    cursor.style.left = percentage + '%';
+                }
+
+                // Clear existing segments
+                const segments = track.querySelectorAll('.blur-segment');
+                segments.forEach(segment => segment.remove());
+
+                if (this.video.duration && this.blurRegions.length > 0) {
+                    // Create visual segments for each blur region
+                    for (const region of this.blurRegions) {
+                        const segmentEl = document.createElement('div');
+                        segmentEl.className = 'blur-segment';
+                        
+                        const start = region.startTime;
+                        const end = region.endTime || this.video.duration;
+                        
+                        segmentEl.style.left = (start / this.video.duration) * 100 + '%';
+                        segmentEl.style.width = Math.max(1, ((end - start) / this.video.duration) * 100) + '%';
+                        
+                        track.appendChild(segmentEl);
+                    }
+                }
+            }
+
+            updateUI() {
+                // Update time display
+                const currentTime = this.formatTime(this.video.currentTime || 0);
+                const duration = this.formatTime(this.video.duration || 0);
+                document.getElementById('timeDisplay').textContent = `${currentTime} / ${duration}`;
+
+                // Update time slider
+                if (this.video.duration) {
+                    const percentage = (this.video.currentTime / this.video.duration) * 100;
+                    document.getElementById('timeSlider').value = percentage;
+                }
+
+                // Update play/pause button
+                document.getElementById('playPause').textContent = this.video.paused ? '▶️' : '⏸️';
+
+                // Update status
+                document.getElementById('videoStatus').textContent = this.video.paused ? 'Paused' : 'Playing';
+                document.getElementById('blurCount').textContent = this.blurRegions.length;
+
+                // Update timeline
+                this.updateTimeline();
+            }
+
+            formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            clearAllBlurs() {
+                this.blurRegions = [];
+                this.nextId = 0;
+                this.updateTimeline();
+                this.updateUI();
+            }
+
+            async exportVideo() {
+                if (!this.video.src || this.blurRegions.length === 0) {
+                    alert('Please load a video and add blur regions before exporting');
+                    return;
+                }
+
+                const exportButton = document.getElementById('exportVideo');
+                const progressDiv = document.getElementById('exportProgress');
+                const statusDiv = document.getElementById('exportStatus');
+                const progressFill = document.getElementById('progressFill');
+
+                try {
+                    // Disable export button and show progress
+                    exportButton.disabled = true;
+                    exportButton.textContent = '⏳ Exporting...';
+                    progressDiv.style.display = 'block';
+
+                    // Create MediaRecorder to capture the canvas
+                    const stream = this.displayCanvas.captureStream(30); // 30fps
+                    const mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'video/webm;codecs=vp9'
+                    });
+
+                    const recordedChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            recordedChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(recordedChunks, {
+                            type: 'video/webm'
+                        });
+
+                        // Create download link
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = `blurred-video-${Date.now()}.webm`;
+                        document.body.appendChild(a);
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+
+                        // Reset UI
+                        exportButton.disabled = false;
+                        exportButton.textContent = '💾 Export Video';
+                        progressDiv.style.display = 'none';
+                        
+                        alert('Video exported successfully!');
+                    };
+
+                    // Start recording
+                    statusDiv.textContent = 'Recording video with blur effects...';
+                    mediaRecorder.start();
+
+                    // Play through the entire video to record it
+                    const originalTime = this.video.currentTime;
+                    const duration = this.video.duration;
+                    
+                    this.video.currentTime = 0;
+                    this.video.play();
+
+                    // Update progress during playback
+                    const updateProgress = () => {
+                        const progress = (this.video.currentTime / duration) * 100;
+                        progressFill.style.width = progress + '%';
+                        statusDiv.textContent = `Recording: ${Math.round(progress)}% complete`;
+
+                        if (this.video.currentTime < duration - 0.1) {
+                            setTimeout(updateProgress, 100);
+                        } else {
+                            // Video finished, stop recording
+                            setTimeout(() => {
+                                mediaRecorder.stop();
+                                this.video.pause();
+                                this.video.currentTime = originalTime;
+                            }, 500);
+                        }
+                    };
+
+                    updateProgress();
+
+                } catch (error) {
+                    console.error('Export error:', error);
+                    alert('Export failed: ' + error.message);
+                    
+                    // Reset UI
+                    exportButton.disabled = false;
+                    exportButton.textContent = '💾 Export Video';
+                    progressDiv.style.display = 'none';
+                }
+            }
+        }
+
+        // Initialize the tool when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ManualBlurTool();
+        });
+    </script>
+</body>
+</html>
